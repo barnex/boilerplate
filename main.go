@@ -5,7 +5,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"os"
 	"path"
 	"text/template"
 )
@@ -15,36 +14,36 @@ func main() {
 	flag.Parse()
 
 	for _, f := range flag.Args() {
-		render(f)
+		state := newState(f)
+		outFname := NoExt(f)
+		state.check(ioutil.WriteFile(outFname, []byte(state.Render(f)), 0666))
 	}
 }
 
-func render(fname string) {
-	state := &State{fname, make(map[string]interface{})}
-
-	outFname := NoExt(fname)
-	out, err := os.OpenFile(outFname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	state.check(err)
-	defer out.Close()
-	ioutil.WriteFile(outFname, []byte(state.Render(fname)), 0666)
-
+func newState(rootFile string) *State{
+	return &State{Root: rootFile, File: rootFile, vars: make(map[string]interface{})}
 }
 
 // a *State is passed to template rendering
 type State struct {
-	File string
+	File, Root string
+	Args []interface{}
 	vars map[string]interface{}
 }
 
 // Render recursively expands the template in fname.
-func (s *State) Render(fname string) string {
+func (s *State) Render(fname string, args ...interface{}) string {
 	content := s.Read(fname)
 	t := template.Must(template.New(fname).Parse(content))
 	out := bytes.NewBuffer(nil)
-	prevFile := s.File
+
+	prev := *s
+
 	s.File = fname
 	s.check(t.Execute(out, s))
-	s.File = prevFile
+
+	*s = prev
+
 	return out.String()
 }
 
