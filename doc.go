@@ -8,5 +8,7 @@
  The most common one is:
 
  	{{.Render "othertemplate.h"}}
+
+ which recursively renders othertemplate.h and all templates therein.
 */
 package main

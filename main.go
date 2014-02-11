@@ -30,11 +30,13 @@ func render(fname string) {
 
 }
 
+// a *State is passed to template rendering
 type State struct {
 	File string
 	vars map[string]interface{}
 }
 
+// Render recursively expands the template in fname.
 func (s *State) Render(fname string) string {
 	content := s.Read(fname)
 	t := template.Must(template.New(fname).Parse(content))
@@ -60,6 +62,7 @@ func (s *State) Var(key string) interface{} {
 	}
 }
 
+// Read expands to the raw contents of fname without rendering the file.
 func (s *State) Read(fname string) string {
 	bytes, err := ioutil.ReadFile(fname)
 	s.check(err)
