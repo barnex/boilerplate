@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -21,8 +22,11 @@ func main() {
 			continue
 		}
 		output := []byte(state.Inc(f))
-		if state.err == nil {
-			state.check(ioutil.WriteFile(outFname, output, 0666))
+		state.check(ioutil.WriteFile(outFname, output, 0666))
+		if state.err != nil {
+			log.Println(f, ":", state.err)
+		}else{
+			log.Println(outFname, "OK")
 		}
 	}
 }
@@ -52,6 +56,10 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 
 	s.check(t.Execute(out, child))
 
+	if child.err != nil && s.err == nil{
+		s.err = child.err
+	}
+
 	return out.String()
 }
 
@@ -78,7 +86,12 @@ func (s *State) Raw(fname string) string {
 }
 
 func (s *State) Arg(index int) interface{} {
-	return s.args[index]
+	if index < len(s.args){
+		return s.args[index]
+	}else{
+		s.err = fmt.Errorf("arg index out of bounds: %v (len(args)=%v)", index, len(s.args))
+		return ""
+	}
 }
 
 // Remove extension from file name.
@@ -89,7 +102,7 @@ func NoExt(file string) string {
 
 func (s *State) check(err error) {
 	if err != nil {
-		log.Println("error in", s.File, ": ", err)
+		//log.Println("error in", s.File, ": ", err)
 		s.err = err
 	}
 }
