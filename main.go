@@ -16,26 +16,28 @@ func main() {
 	for _, f := range flag.Args() {
 		state := newState(f)
 		outFname := NoExt(f)
-		if outFname == f{
+		if outFname == f {
 			log.Println("skipping", f, ": input and output file are the same")
 			continue
 		}
 		output := []byte(state.Inc(f))
-		if state.err == nil{
+		if state.err == nil {
 			state.check(ioutil.WriteFile(outFname, output, 0666))
 		}
 	}
 }
 
-func newState(rootFile string) *State{
-	return &State{Root: rootFile, File: rootFile }
+func newState(rootFile string) *State {
+	return &State{File: rootFile, vars: make(map[string]interface{})}
 }
 
 // a *State is passed to template rendering
 type State struct {
-	File, Root string
-	args []interface{}
-	err error
+	File   string
+	parent *State
+	args   []interface{}
+	vars   map[string]interface{}
+	err    error
 }
 
 // Render recursively expands the template in fname.
@@ -44,34 +46,29 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 	t := template.Must(template.New(fname).Parse(content))
 	out := bytes.NewBuffer(nil)
 
-	prev := *s
+	child := newState(s.File)
+	child.parent = s
+	child.args = args
 
-	s.File = fname
-	s.args = args
-	s.check(t.Execute(out, s))
-
-	*s = prev
+	s.check(t.Execute(out, child))
 
 	return out.String()
 }
 
+func (s *State) Def(key string, value interface{}) string {
+	s.vars[key] = value
+	return "" // must return something to template
+}
 
-// TODO: scoping
-//func (s *State) Def(key string, value interface{}) string {
-//       s.vars[key] = value
-//       return "" // must return something to template
-//}
-//
-//func (s *State) Var(key string) interface{} {
-//       if v, ok := s.vars[key]; ok {
-//               return v
-//       } else {
-//               log.Println("warning: undefined variable", key, "in", s.File)
-//               return ""
-//       }
-//}
-
-
+func (state *State) Var(key string) interface{} {
+	for s := state; s != nil; s = s.parent {
+		if v, ok := s.vars[key]; ok {
+			return v
+		}
+	}
+	log.Println("warning:", state.File, "-> undefined variable:", key)
+	return ""
+}
 
 // Read expands to the raw contents of fname without rendering the file.
 func (s *State) Raw(fname string) string {
@@ -80,7 +77,7 @@ func (s *State) Raw(fname string) string {
 	return string(bytes)
 }
 
-func(s*State)Arg(index int)interface{}{
+func (s *State) Arg(index int) interface{} {
 	return s.args[index]
 }
 
@@ -92,7 +89,7 @@ func NoExt(file string) string {
 
 func (s *State) check(err error) {
 	if err != nil {
-		log.Println("error in ", s.Root, "->", s.File, ": ", err)
+		log.Println("error in", s.File, ": ", err)
 		s.err = err
 	}
 }
