@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+    "strings"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -13,6 +15,7 @@ func main() {
 	log.SetFlags(0)
 	flag.Parse()
 
+	ok := true
 	for _, f := range flag.Args() {
 		state := newState(f)
 		outFname := NoExt(f)
@@ -24,9 +27,14 @@ func main() {
 		state.check(ioutil.WriteFile(outFname, output, 0666))
 		if state.err != nil {
 			log.Println(f, ":", state.err)
+			ok = false
 		}else{
 			log.Println(outFname, "OK")
 		}
+	}
+
+	if !ok{
+		log.Fatal("exiting with errors")
 	}
 }
 
@@ -47,6 +55,10 @@ type State struct {
 // and passes optional arguments which are accessible as
 // 	{{.Arg 0}} {{.Arg 1}} ...
 func (s *State) Inc(fname string, args ...interface{}) string {
+	if strings.HasPrefix(fname, "./"){
+		fname = s.Dir() +  fname
+		fname = path.Clean(fname)
+	}
 	content := s.Raw(fname)
 	t := template.Must(template.New(fname).Parse(content))
 	out := bytes.NewBuffer(nil)
@@ -69,7 +81,7 @@ func (s *State) Arg(index int) interface{} {
 	if index < len(s.args){
 		return s.args[index]
 	}else{
-		log.Println("warning: in", s.File, "argument", index, "not provided")
+		//log.Println("warning: in", s.File, "argument", index, "not provided")
 		return ""
 	}
 }
@@ -98,6 +110,14 @@ func (s *State) Raw(fname string) string {
 	return string(bytes)
 }
 
+func(s*State)Cat(x...interface{})string{
+	return fmt.Sprint(x...)
+}
+
+func(s*State)ToLower(x interface{})string{
+	return strings.ToLower(fmt.Sprint(x))
+}
+
 //func(s*State) BasePath() string{
 //	base := ""
 //	for _, chr := range s.File{
@@ -107,6 +127,11 @@ func (s *State) Raw(fname string) string {
 //	}
 //	return base
 //}
+
+
+func(s*State) Dir() string{
+	return path.Dir(s.File) + "/"
+}
 
 
 // Remove extension from file name.
