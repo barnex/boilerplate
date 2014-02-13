@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-    "strings"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"path"
+	"strings"
 	"text/template"
 )
 
@@ -28,12 +28,12 @@ func main() {
 		if state.err != nil {
 			log.Println(f, ":", state.err)
 			ok = false
-		}else{
+		} else {
 			log.Println(outFname, "OK")
 		}
 	}
 
-	if !ok{
+	if !ok {
 		log.Fatal("exiting with errors")
 	}
 }
@@ -55,9 +55,12 @@ type State struct {
 // and passes optional arguments which are accessible as
 // 	{{.Arg 0}} {{.Arg 1}} ...
 func (s *State) Inc(fname string, args ...interface{}) string {
-	if strings.HasPrefix(fname, "./"){
-		fname = s.Dir() +  fname
+	if strings.HasPrefix(fname, "./") {
+		fname = s.Dir() + fname
 		fname = path.Clean(fname)
+		if fname == "." {
+			fname = ""
+		}
 	}
 	content := s.Raw(fname)
 	t := template.Must(template.New(fname).Parse(content))
@@ -69,7 +72,7 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 
 	s.check(t.Execute(out, child))
 
-	if child.err != nil && s.err == nil{
+	if child.err != nil && s.err == nil {
 		s.err = child.err
 	}
 
@@ -78,9 +81,9 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 
 // Retrieves an argument passed to Inc.
 func (s *State) Arg(index int) interface{} {
-	if index < len(s.args){
+	if index < len(s.args) {
 		return s.args[index]
-	}else{
+	} else {
 		//log.Println("warning: in", s.File, "argument", index, "not provided")
 		return ""
 	}
@@ -110,12 +113,23 @@ func (s *State) Raw(fname string) string {
 	return string(bytes)
 }
 
-func(s*State)Cat(x...interface{})string{
+func (s *State) Cat(x ...interface{}) string {
 	return fmt.Sprint(x...)
 }
 
-func(s*State)ToLower(x interface{})string{
+func (s *State) ToLower(x interface{}) string {
 	return strings.ToLower(fmt.Sprint(x))
+}
+
+func (s *State) Path() []string {
+	d := s.Dir()
+	d = d[:len(d)-1] // rm trailing /
+	p := strings.Split(d, "/")
+	if p[0] == "." {
+		p = []string{}
+	}
+	log.Println("path of", s.File, p)
+	return p
 }
 
 //func(s*State) BasePath() string{
@@ -128,11 +142,9 @@ func(s*State)ToLower(x interface{})string{
 //	return base
 //}
 
-
-func(s*State) Dir() string{
+func (s *State) Dir() string {
 	return path.Dir(s.File) + "/"
 }
-
 
 // Remove extension from file name.
 func NoExt(file string) string {

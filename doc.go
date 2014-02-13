@@ -1,6 +1,6 @@
 /*
  Boilerplate renders Go templates aimed at static html generation.
- See http://golang.org/pkg/text/template/ for Go's template syntax. 
+ See http://golang.org/pkg/text/template/ for Go's template syntax.
 
  	boilerplate *.html.t
 
