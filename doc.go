@@ -1,5 +1,6 @@
 /*
  Boilerplate renders Go templates aimed at static html generation.
+ See http://golang.org/pkg/text/template/ for Go's template syntax. 
 
  	boilerplate *.html.t
 
@@ -7,8 +8,8 @@
  The template is fed a *State variable providing template methods.
  The most common one is:
 
- 	{{.Render "othertemplate.h"}}
+ 	{{.Inc "othertemplate"}}
 
- which recursively renders othertemplate.h and all templates therein.
+ which recursively renders othertemplate and all templates therein.
 */
 package main
