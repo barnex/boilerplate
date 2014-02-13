@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -44,7 +43,9 @@ type State struct {
 	err    error
 }
 
-// Render recursively expands the template in fname.
+// Recursively expands the template in file "fname"
+// and passes optional arguments which are accessible as
+// 	{{.Arg 0}} {{.Arg 1}} ...
 func (s *State) Inc(fname string, args ...interface{}) string {
 	content := s.Raw(fname)
 	t := template.Must(template.New(fname).Parse(content))
@@ -63,11 +64,23 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 	return out.String()
 }
 
+// Retrieves an argument passed to Inc.
+func (s *State) Arg(index int) interface{} {
+	if index < len(s.args){
+		return s.args[index]
+	}else{
+		log.Println("warning: in", s.File, "argument", index, "not provided")
+		return ""
+	}
+}
+
+// Define a new variable with given name and value.
 func (s *State) Def(key string, value interface{}) string {
 	s.vars[key] = value
 	return "" // must return something to template
 }
 
+// Retrieve variable value.
 func (state *State) Var(key string) interface{} {
 	for s := state; s != nil; s = s.parent {
 		if v, ok := s.vars[key]; ok {
@@ -78,21 +91,23 @@ func (state *State) Var(key string) interface{} {
 	return ""
 }
 
-// Read expands to the raw contents of fname without rendering the file.
+// Expands to the raw contents of file "fname", not treating it as a template.
 func (s *State) Raw(fname string) string {
 	bytes, err := ioutil.ReadFile(fname)
 	s.check(err)
 	return string(bytes)
 }
 
-func (s *State) Arg(index int) interface{} {
-	if index < len(s.args){
-		return s.args[index]
-	}else{
-		s.err = fmt.Errorf("arg index out of bounds: %v (len(args)=%v)", index, len(s.args))
-		return ""
-	}
-}
+//func(s*State) BasePath() string{
+//	base := ""
+//	for _, chr := range s.File{
+//		if chr == '/'{
+//			base += "../"
+//		}
+//	}
+//	return base
+//}
+
 
 // Remove extension from file name.
 func NoExt(file string) string {
