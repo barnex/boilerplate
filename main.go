@@ -106,6 +106,12 @@ func (state *State) Var(key string) interface{} {
 	return ""
 }
 
+
+// Expands to the raw contents of file "fname", and applies HTML escapes.
+func (s *State) Esc(fname string) string {
+	return template.HTMLEscapeString(s.Raw(fname))
+}
+
 // Expands to the raw contents of file "fname", not treating it as a template.
 func (s *State) Raw(fname string) string {
 	bytes, err := ioutil.ReadFile(fname)
