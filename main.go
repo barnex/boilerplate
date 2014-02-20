@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"log"
 	"path"
 	"strings"
@@ -107,7 +108,7 @@ func (state *State) Var(key string) interface{} {
 }
 
 
-// Expands to the raw contents of file "fname", and applies HTML escapes.
+// Esc is like Raw, but escapes HTML characters.
 func (s *State) Esc(fname string) string {
 	return template.HTMLEscapeString(s.Raw(fname))
 }
@@ -119,12 +120,27 @@ func (s *State) Raw(fname string) string {
 	return string(bytes)
 }
 
+// Concatenate arguments into single string
 func (s *State) Cat(x ...interface{}) string {
 	return fmt.Sprint(x...)
 }
 
+// Convert argument to lower case.
 func (s *State) ToLower(x interface{}) string {
 	return strings.ToLower(fmt.Sprint(x))
+}
+
+// Cmd executes an external program with arguments.
+func(s*State)Cmd(cmd string, args...string)string{
+	c := exec.Command(cmd, args...)
+	log.Println(cmd, args)
+	out, err := c.CombinedOutput()
+	if err != nil{
+		log.Println(string(out))
+		log.Println(err)
+		return ""
+	}
+	return string(out)
 }
 
 func (s *State) Path() []string {
@@ -148,6 +164,7 @@ func (s *State) Path() []string {
 //	return base
 //}
 
+// Dir returns the directory of the currently rendered template file.
 func (s *State) Dir() string {
 	return path.Dir(s.File) + "/"
 }
