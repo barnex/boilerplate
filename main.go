@@ -10,33 +10,71 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"path/filepath"
+	"os"
 )
 
 func main() {
 	log.SetFlags(0)
 	flag.Parse()
 
-	ok := true
-	for _, f := range flag.Args() {
-		state := newState(f)
-		outFname := NoExt(f)
-		if outFname == f {
-			log.Println("skipping", f, ": input and output file are the same")
-			continue
+	if flag.NArg() == 0{
+		wd, err := os.Getwd()
+		if err !=nil{
+			log.Fatal(err)
 		}
-		output := []byte(state.Inc(f))
-		state.check(ioutil.WriteFile(outFname, output, 0666))
-		if state.err != nil {
-			log.Println(f, ":", state.err)
-			ok = false
-		} else {
-			log.Println(outFname, "OK")
-		}
+		fmt.Println("compiling *.t in all subdirectories of", wd)
+		recursive(wd)
+	}else{
+		handleargs(flag.Args())
 	}
 
+}
+
+func handleargs(args[]string){
+	ok := true
+	for _, f := range flag.Args() {
+		err := handle(f)
+		if err != nil {
+			ok = false
+		}
+	}
 	if !ok {
 		log.Fatal("exiting with errors")
 	}
+}
+
+func recursive(dir string){
+		ok := true
+		filepath.Walk(dir, func(path string, i os.FileInfo, err error) error {
+			if strings.HasSuffix(path, ".t"){
+				err := handle(path)
+				if err != nil{
+					ok = false
+				}
+			}
+			return nil
+		})
+	if !ok {
+		log.Fatal("exiting with errors")
+	}
+}
+
+func handle(f string)error{
+		fmt.Print(f, ": ")
+		state := newState(f)
+		outFname := NoExt(f)
+		if outFname == f {
+			return fmt.Errorf("skipping", f, ": input and output file are the same")
+		}
+		output := []byte(state.Inc(f))
+		state.check(ioutil.WriteFile(outFname, output, 0666))
+		if state.err != nil{
+			fmt.Println(state.err)
+		}else{
+			fmt.Println("OK")
+		}
+		return state.err
 }
 
 func newState(rootFile string) *State {
