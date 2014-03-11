@@ -12,6 +12,19 @@ import (
 	"log"
 )
 
+
+func (s *State) Publist(dir string) string {
+	pubs, err := LoadPublications(dir)
+	if err != nil{
+		panic(err)
+	}
+	out := ""
+	for _, p := range pubs{
+		out += s.Inc("publication", p.Title, p.Author, p.Journal, p.Date + " " + p.Year, p.DOI, p.Abstract)
+	}
+	return out
+}
+
 // stores the content of a parsed RIS file.
 type pub struct {
 	Author     []string
@@ -112,7 +125,7 @@ func (p *pub) Add(key, val string) {
 	case "PY":
 		p.Year = val
 	case "DI":
-		p.DOI = val
+		p.DOI = "http://doi.org/" + val
 	}
 }
 
