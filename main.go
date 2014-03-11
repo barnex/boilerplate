@@ -5,33 +5,34 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"log"
+	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
-	"path/filepath"
-	"os"
 )
 
 func main() {
 	log.SetFlags(0)
 	flag.Parse()
 
-	if flag.NArg() == 0{
+	if flag.NArg() == 0 {
 		wd, err := os.Getwd()
-		if err !=nil{
+		if err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println("compiling *.t in all subdirectories of", wd)
 		recursive(wd)
-	}else{
+	} else {
 		handleargs(flag.Args())
 	}
 
 }
 
-func handleargs(args[]string){
+func handleargs(args []string) {
 	ok := true
 	for _, f := range flag.Args() {
 		err := handle(f)
@@ -44,37 +45,37 @@ func handleargs(args[]string){
 	}
 }
 
-func recursive(dir string){
-		ok := true
-		filepath.Walk(dir, func(path string, i os.FileInfo, err error) error {
-			if strings.HasSuffix(path, ".t"){
-				err := handle(path)
-				if err != nil{
-					ok = false
-				}
+func recursive(dir string) {
+	ok := true
+	filepath.Walk(dir, func(path string, i os.FileInfo, err error) error {
+		if strings.HasSuffix(path, ".t") {
+			err := handle(path)
+			if err != nil {
+				ok = false
 			}
-			return nil
-		})
+		}
+		return nil
+	})
 	if !ok {
 		log.Fatal("exiting with errors")
 	}
 }
 
-func handle(f string)error{
-		fmt.Print(f, ": ")
-		state := newState(f)
-		outFname := NoExt(f)
-		if outFname == f {
-			return fmt.Errorf("skipping", f, ": input and output file are the same")
-		}
-		output := []byte(state.Inc(f))
-		state.check(ioutil.WriteFile(outFname, output, 0666))
-		if state.err != nil{
-			fmt.Println(state.err)
-		}else{
-			fmt.Println("OK")
-		}
-		return state.err
+func handle(f string) error {
+	fmt.Print(f, ": ")
+	state := newState(f)
+	outFname := NoExt(f)
+	if outFname == f {
+		return fmt.Errorf("skipping", f, ": input and output file are the same")
+	}
+	output := []byte(state.Inc(f))
+	state.check(ioutil.WriteFile(outFname, output, 0666))
+	if state.err != nil {
+		fmt.Println(state.err)
+	} else {
+		fmt.Println("OK")
+	}
+	return state.err
 }
 
 func newState(rootFile string) *State {
@@ -118,6 +119,18 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 	return out.String()
 }
 
+// Esc is like Raw, but escapes HTML characters.
+func (s *State) Esc(fname string) string {
+	return template.HTMLEscapeString(s.Raw(fname))
+}
+
+// Expands to the raw contents of file "fname", not treating it as a template.
+func (s *State) Raw(fname string) string {
+	bytes, err := ioutil.ReadFile(fname)
+	s.check(err)
+	return string(bytes)
+}
+
 // Retrieves an argument passed to Inc.
 func (s *State) Arg(index int) interface{} {
 	if index < len(s.args) {
@@ -145,19 +158,6 @@ func (state *State) Var(key string) interface{} {
 	return ""
 }
 
-
-// Esc is like Raw, but escapes HTML characters.
-func (s *State) Esc(fname string) string {
-	return template.HTMLEscapeString(s.Raw(fname))
-}
-
-// Expands to the raw contents of file "fname", not treating it as a template.
-func (s *State) Raw(fname string) string {
-	bytes, err := ioutil.ReadFile(fname)
-	s.check(err)
-	return string(bytes)
-}
-
 // Concatenate arguments into single string
 func (s *State) Cat(x ...interface{}) string {
 	return fmt.Sprint(x...)
@@ -168,12 +168,39 @@ func (s *State) ToLower(x interface{}) string {
 	return strings.ToLower(fmt.Sprint(x))
 }
 
+func (s *State) Ls(pattern ...string) []string {
+	dir, err := os.Open(s.Dir())
+	if err != nil {
+		panic(err)
+	}
+	fi, err2 := dir.Readdir(-1)
+	if err2 != nil {
+		panic(err2)
+	}
+	if len(pattern) == 0 {
+		pattern = []string{""}
+	}
+	var files []string
+	for _, f := range fi {
+		for _, pattern := range pattern {
+			match, err := regexp.MatchString(pattern, f.Name())
+			if err != nil {
+				panic(err)
+			}
+			if match {
+				files = append(files, s.Dir()+f.Name())
+			}
+		}
+	}
+	return files
+}
+
 // Cmd executes an external program with arguments.
-func(s*State)Cmd(cmd string, args...string)string{
+func (s *State) Cmd(cmd string, args ...string) string {
 	c := exec.Command(cmd, args...)
 	log.Println(cmd, args)
 	out, err := c.CombinedOutput()
-	if err != nil{
+	if err != nil {
 		log.Println(string(out))
 		log.Println(err)
 		return ""

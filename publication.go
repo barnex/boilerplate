@@ -6,21 +6,20 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"sort"
-	"log"
 )
-
 
 func (s *State) Publist(dir string) string {
 	pubs, err := LoadPublications(dir)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	out := ""
-	for _, p := range pubs{
-		out += s.Inc("publication", p.Title, p.Author, p.Journal, p.Date + " " + p.Year, p.DOI, p.Abstract)
+	for _, p := range pubs {
+		out += s.Inc("publication", p.Title, p.Author, p.Journal, p.Date+" "+p.Year, p.DOI, p.Abstract)
 	}
 	return out
 }
@@ -39,11 +38,15 @@ type pub struct {
 // Load publication .ciw files from the directory and serve them under that directory name.
 // To be called before LoadContent. TODO: should be OK to call after loadcontent.
 // To be called after PubXRefAuthor calls, if any.
-func LoadPublications(dir string) ([]*pub, error){
+func LoadPublications(dir string) ([]*pub, error) {
 	d, err1 := os.Open(dir)
-	if err1!=nil{return nil, err1}
+	if err1 != nil {
+		return nil, err1
+	}
 	ls, err2 := d.Readdir(-1)
-	if err2!=nil{return nil, err2}
+	if err2 != nil {
+		return nil, err2
+	}
 
 	var pubs []*pub
 	var err error
@@ -52,7 +55,7 @@ func LoadPublications(dir string) ([]*pub, error){
 		if path.Ext(f.Name()) == ".ciw" {
 			fullname := dir + "/" + f.Name()
 			pub, e := parseRIS(fullname)
-			if e != nil{
+			if e != nil {
 				log.Println("error parsing", fullname, ":", e)
 				err = e
 				continue
@@ -67,13 +70,14 @@ func LoadPublications(dir string) ([]*pub, error){
 
 // makes publication list sortable
 type publist []*pub
-func(p publist)Len()int{return len(p)}
-func(p publist)Less(i,j int)bool{return p[i].Year > p[j].Year} // most recent first
-func(p publist)Swap(i,j int){ p[i], p[j] = p[j], p[i]}
 
-func parseRIS(fname string) (p *pub, err error){
-	defer func(){
-		if e := recover(); e != nil{
+func (p publist) Len() int           { return len(p) }
+func (p publist) Less(i, j int) bool { return p[i].Year > p[j].Year } // most recent first
+func (p publist) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+func parseRIS(fname string) (p *pub, err error) {
+	defer func() {
+		if e := recover(); e != nil {
 			p = nil
 			err = fmt.Errorf("%v", e)
 		}
@@ -81,13 +85,13 @@ func parseRIS(fname string) (p *pub, err error){
 	p = new(pub)
 	p.RIS = fname
 	f, e := os.Open(fname)
-	if e != nil{
+	if e != nil {
 		return nil, e
 	}
 	in := bufio.NewReader(f)
 
 	l, _, e2 := in.ReadLine()
-	if e2 != nil{
+	if e2 != nil {
 		return nil, e2
 	}
 	key, val := string(l[:2]), string(l[3:])
@@ -103,7 +107,7 @@ func parseRIS(fname string) (p *pub, err error){
 			val = string(l[3:])
 		}
 	}
-	if err != nil{
+	if err != nil {
 		p = nil
 	}
 	return p, err
@@ -128,4 +132,3 @@ func (p *pub) Add(key, val string) {
 		p.DOI = "http://doi.org/" + val
 	}
 }
-

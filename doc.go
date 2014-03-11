@@ -8,8 +8,10 @@
  The template is fed a *State variable providing template methods.
  The most common one is:
 
- 	{{.Inc "othertemplate"}}
+ 	{{.Inc "othertemplate" "arg1" "arg..."}}
 
  which recursively renders othertemplate and all templates therein.
+ Files passed to in .Inc are resolved with respect to the main working directory.
+
 */
 package main
