@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"text/template"
 )
@@ -141,6 +142,10 @@ func (s *State) Arg(index int) interface{} {
 	}
 }
 
+func (s *State) Args() []interface{} {
+	return s.args
+}
+
 // Define a new variable with given name and value.
 func (s *State) Def(key string, value interface{}) string {
 	s.vars[key] = value
@@ -168,7 +173,9 @@ func (s *State) ToLower(x interface{}) string {
 	return strings.ToLower(fmt.Sprint(x))
 }
 
-func (s *State) Ls(pattern ...string) []string {
+// List all files matching patterns. No patterns returns all files.
+// Match in current directory.
+func (s *State) Ls(pattern string) []string {
 	dir, err := os.Open(s.Dir())
 	if err != nil {
 		panic(err)
@@ -177,22 +184,26 @@ func (s *State) Ls(pattern ...string) []string {
 	if err2 != nil {
 		panic(err2)
 	}
-	if len(pattern) == 0 {
-		pattern = []string{""}
-	}
 	var files []string
 	for _, f := range fi {
-		for _, pattern := range pattern {
-			match, err := regexp.MatchString(pattern, f.Name())
-			if err != nil {
-				panic(err)
-			}
-			if match {
-				files = append(files, s.Dir()+f.Name())
-			}
+		match, err := regexp.MatchString(pattern, f.Name())
+		if err != nil {
+			panic(err)
+		}
+		if match {
+			files = append(files, s.Dir()+f.Name())
 		}
 	}
+	sort.Strings(files)
 	return files
+}
+
+func (s *State) BaseName(file string) string {
+	return path.Base(file)
+}
+
+func (s *State) NoExt(file string) string {
+	return file[:len(file)-len(path.Ext(file))]
 }
 
 // Cmd executes an external program with arguments.
