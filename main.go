@@ -198,6 +198,26 @@ func (s *State) Ls(pattern string) []string {
 	return files
 }
 
+// Lists all subdirectories.
+func (s *State) LsDirs() []string {
+	dir, err := os.Open(s.Dir())
+	if err != nil {
+		panic(err)
+	}
+	fi, err2 := dir.Readdir(-1)
+	if err2 != nil {
+		panic(err2)
+	}
+	var files []string
+	for _, f := range fi {
+		if f.IsDir() {
+			files = append(files, s.Dir()+f.Name())
+		}
+	}
+	sort.Strings(files)
+	return files
+}
+
 func (s *State) BaseName(file string) string {
 	return path.Base(file)
 }
