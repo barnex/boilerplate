@@ -26,7 +26,7 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Println("compiling *.t in all subdirectories of", wd)
-		recursive(wd)
+		recursive(".")
 	} else {
 		handleargs(flag.Args())
 	}
@@ -34,49 +34,35 @@ func main() {
 }
 
 func handleargs(args []string) {
-	ok := true
 	for _, f := range flag.Args() {
-		err := handle(f)
-		if err != nil {
-			ok = false
-		}
-	}
-	if !ok {
-		log.Fatal("exiting with errors")
+		handle(f)
 	}
 }
 
 func recursive(dir string) {
-	ok := true
 	filepath.Walk(dir, func(path string, i os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".t") {
-			err := handle(path)
-			if err != nil {
-				ok = false
-			}
+			handle(path)
 		}
 		return nil
 	})
-	if !ok {
-		log.Fatal("exiting with errors")
-	}
 }
 
-func handle(f string) error {
-	fmt.Print(f, ": ")
+func handle(f string) {
+	//fmt.Print(f, ": ")
 	state := newState(f)
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(state.File, ":", err)
+			os.Exit(-1)
+		}
+	}()
 	outFname := NoExt(f)
 	if outFname == f {
-		return fmt.Errorf("skipping", f, ": input and output file are the same")
+		fmt.Println("skipping", f, ": input and output file are the same")
 	}
 	output := []byte(state.Inc(f))
 	state.check(ioutil.WriteFile(outFname, output, 0666))
-	if state.err != nil {
-		fmt.Println(state.err)
-	} else {
-		fmt.Println("OK")
-	}
-	return state.err
 }
 
 func newState(rootFile string) *State {
@@ -89,13 +75,45 @@ type State struct {
 	parent *State
 	args   []interface{}
 	vars   map[string]interface{}
-	err    error
+	//err    error
+}
+
+type indent int
+
+func (t indent) String() string {
+	str := "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
+	return str[:t]
+}
+
+var tabs indent
+
+func short(arg interface{}) string {
+	str := fmt.Sprint(arg)
+	const maxlen = 20
+	if len(str) > maxlen {
+		return str[:maxlen-3] + "..."
+	} else {
+		return str
+	}
 }
 
 // Recursively expands the template in file "fname"
 // and passes optional arguments which are accessible as
 // 	{{.Arg 0}} {{.Arg 1}} ...
 func (s *State) Inc(fname string, args ...interface{}) string {
+	fmt.Print(tabs, "Inc ", fname, "(")
+	for _, arg := range args {
+		fmt.Print(short(arg), " ")
+	}
+	fmt.Println(")")
+
+	if fname == "" { // inc nothing
+		return ""
+	}
+	tabs++
+	defer func() {
+		tabs--
+	}()
 	fname = s.abs(fname)
 	content := s.Raw(fname)
 	t := template.Must(template.New(fname).Parse(content))
@@ -107,10 +125,6 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 
 	s.check(t.Execute(out, child))
 
-	if child.err != nil && s.err == nil {
-		s.err = child.err
-	}
-
 	return out.String()
 }
 
@@ -120,9 +134,6 @@ func (s *State) abs(fname string) string {
 	if strings.HasPrefix(fname, "./") {
 		fname = s.Dir() + fname
 		fname = path.Clean(fname)
-		if fname == "." {
-			fname = ""
-		}
 	}
 	return fname
 }
@@ -185,19 +196,13 @@ func (s *State) ToLower(x interface{}) string {
 // Match in current directory.
 func (s *State) Ls(pattern string) []string {
 	dir, err := os.Open(s.Dir())
-	if err != nil {
-		panic(err)
-	}
+	s.check(err)
 	fi, err2 := dir.Readdir(-1)
-	if err2 != nil {
-		panic(err2)
-	}
+	s.check(err2)
 	var files []string
 	for _, f := range fi {
 		match, err := regexp.MatchString(pattern, f.Name())
-		if err != nil {
-			panic(err)
-		}
+		s.check(err)
 		if match {
 			files = append(files, s.Dir()+f.Name())
 		}
@@ -209,16 +214,12 @@ func (s *State) Ls(pattern string) []string {
 // Lists all subdirectories.
 func (s *State) LsDirs() []string {
 	dir, err := os.Open(s.Dir())
-	if err != nil {
-		panic(err)
-	}
+	s.check(err)
 	fi, err2 := dir.Readdir(-1)
-	if err2 != nil {
-		panic(err2)
-	}
+	s.check(err2)
 	var files []string
 	for _, f := range fi {
-		if f.IsDir() {
+		if f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
 			files = append(files, s.Dir()+f.Name())
 		}
 	}
@@ -235,6 +236,7 @@ func (s *State) NoExt(file string) string {
 }
 
 func (s *State) Exists(file string) bool {
+	file = s.abs(file)
 	_, err := os.Stat(file)
 	if err != nil {
 		return false
@@ -289,7 +291,6 @@ func NoExt(file string) string {
 
 func (s *State) check(err error) {
 	if err != nil {
-		//log.Println("error in", s.File, ": ", err)
-		s.err = err
+		panic(fmt.Sprint(s.File, ":", err))
 	}
 }
