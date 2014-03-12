@@ -96,13 +96,7 @@ type State struct {
 // and passes optional arguments which are accessible as
 // 	{{.Arg 0}} {{.Arg 1}} ...
 func (s *State) Inc(fname string, args ...interface{}) string {
-	if strings.HasPrefix(fname, "./") {
-		fname = s.Dir() + fname
-		fname = path.Clean(fname)
-		if fname == "." {
-			fname = ""
-		}
-	}
+	fname = s.abs(fname)
 	content := s.Raw(fname)
 	t := template.Must(template.New(fname).Parse(content))
 	out := bytes.NewBuffer(nil)
@@ -120,6 +114,19 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 	return out.String()
 }
 
+// resolve file name: ./name is absolute with respect to s.Dir,
+// name (without ./) is relative wrt. wd.
+func (s *State) abs(fname string) string {
+	if strings.HasPrefix(fname, "./") {
+		fname = s.Dir() + fname
+		fname = path.Clean(fname)
+		if fname == "." {
+			fname = ""
+		}
+	}
+	return fname
+}
+
 // Esc is like Raw, but escapes HTML characters.
 func (s *State) Esc(fname string) string {
 	return template.HTMLEscapeString(s.Raw(fname))
@@ -127,6 +134,7 @@ func (s *State) Esc(fname string) string {
 
 // Expands to the raw contents of file "fname", not treating it as a template.
 func (s *State) Raw(fname string) string {
+	fname = s.abs(fname)
 	bytes, err := ioutil.ReadFile(fname)
 	s.check(err)
 	return string(bytes)
@@ -224,6 +232,14 @@ func (s *State) BaseName(file string) string {
 
 func (s *State) NoExt(file string) string {
 	return file[:len(file)-len(path.Ext(file))]
+}
+
+func (s *State) Exists(file string) bool {
+	_, err := os.Stat(file)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // Cmd executes an external program with arguments.
