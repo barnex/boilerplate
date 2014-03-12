@@ -122,7 +122,7 @@ func (p *pub) Add(key, val string) {
 		p.Title = p.Title + " " + val
 	case "AB":
 		p.Abstract = p.Abstract + " " + val
-	case "JI":
+	case "SO":
 		p.Journal = val
 	case "PD":
 		p.Date = val

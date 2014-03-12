@@ -128,6 +128,12 @@ func (s *State) Inc(fname string, args ...interface{}) string {
 	return out.String()
 }
 
+func (s *State) Echo(msg ...interface{}) string {
+	fmt.Print(tabs)
+	fmt.Println(msg...)
+	return ""
+}
+
 // resolve file name: ./name is absolute with respect to s.Dir,
 // name (without ./) is relative wrt. wd.
 func (s *State) abs(fname string) string {
